@@ -16,28 +16,26 @@
       <div
         v-for="(jsonComment, j) in comment.jsonComments.comments"
         :key="`${j}_${Math.random()}`"
-        class="my-2"
+        class="flex items-start justify-start mb-5"
       >
-        <div class="flex gap-2 items-center">
-          <Avatar
-            :label="jsonComment.userName"
-            :image="jsonComment.userImage"
-            class="h-7 w-7"
-          />
-          <div>
-            <span class="text-sm font-medium">
+        <Avatar
+          :label="jsonComment.userName"
+          :image="jsonComment.userImage"
+          class="h-7 w-7"
+        />
+        <div class="ml-3">
+          <div class="flex items-center justify-start text-base gap-x-1">
+            <span class="font-medium">
               {{ jsonComment.userName }}
             </span>
-            <span class="text-gray-500 text-sm">{{ " ∙ " }}</span>
-            <span class="text-gray-700 text-sm">
+            <span class="text-gray-500">{{ " ∙ " }}</span>
+            <span class="text-gray-600">
               {{ formatDate(jsonComment.time) }}
             </span>
           </div>
-        </div>
-        <div
-          class="ml-2.5 mt-2 text-sm text-gray-700 max-w-full break-word leading-snug"
-        >
-          <p class="">{{ jsonComment.content }}</p>
+          <span class="my-2 text-base text-gray-700 break-word leading-snug">{{
+            jsonComment.content
+          }}</span>
         </div>
       </div>
 
@@ -54,33 +52,25 @@
       >
         <div class="flex items-center gap-1 mt-2 mb-4">
           <Avatar :label="fullName" :image="imageURL" class="h-7 w-7 mr-1" />
-          <span class="text-sm font-medium">
-            {{ fullName }}
-          </span>
-          <span class="text-gray-500 text-sm">{{ "∙" }}</span>
-          <span class="text-gray-700 text-sm">Now</span>
+          <div
+            class="flex items-center mx-auto border w-full bg-transparent rounded max-w-[87%] focus-within:ring-2 ring-gray-400 hover:bg-gray-100 focus-within:bg-gray-100 group"
+          >
+            <textarea
+              v-model="commentText"
+              class="w-full form-textarea bg-transparent resize-none border-none hover:bg-transparent focus:ring-0 focus:shadow-none focus:bg-transparent"
+              placeholder="Add comment"
+              @input="resize($event)"
+              @keypress.enter.stop.prevent="setComment"
+            />
+            <Button
+              class="hover:bg-transparent"
+              variant="ghost"
+              icon="arrow-up-circle"
+              :disabled="!commentText.length"
+              @click="setComment"
+            ></Button>
+          </div>
         </div>
-        <textarea
-          :ref="
-            (el) => {
-              textarea[comment.jsonComments.uuid] = el
-            }
-          "
-          class="h-7 placeholder-gray-500 max-h-[60vh] overflow-auto form-textarea block mx-0.5 resize-none mb-2"
-          v-model="commentText"
-          placeholder="Reply"
-          @input="resize($event)"
-          @focus="comment.jsonComments.uuid === activeCommentsInstance.uuid"
-          @keypress.enter.stop.prevent="setComment"
-        />
-        <Button
-          class="w-full"
-          variant="solid"
-          :disabled="!commentText.length"
-          @click="setComment"
-        >
-          Save
-        </Button>
       </section>
     </article>
   </section>
@@ -132,7 +122,7 @@ watch(activeCommentInstanceUuid, (val) => {
 
     const activeTextArea: HTMLTextAreaElement = textarea.value[val]
 
-    if (activeTextArea) activeTextArea.focus()
+    //if (activeTextArea) activeTextArea.focus()
   }, 100)
 })
 
