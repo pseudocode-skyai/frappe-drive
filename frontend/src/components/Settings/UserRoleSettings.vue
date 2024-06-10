@@ -5,6 +5,7 @@
         >Groups</span
       >
       <Button
+        v-if="isDriveadmin"
         variant="subtle"
         icon-left="plus"
         @click="CreateRoleDialog = !CreateRoleDialog"
@@ -24,6 +25,7 @@
         <Avatar size="lg" :label="group.name" />
         <span class="ml-2">{{ group.name }}</span>
         <Dropdown
+          v-if="isDriveadmin"
           :button="{
             icon: 'more-horizontal',
             label: 'Page Options',
@@ -52,10 +54,10 @@
 
     <div
       v-if="!AllRoles?.length"
-      class="h-1/2 w-full flex flex-col items-center justify-center"
+      class="h-1/2 w-full flex flex-col items-center justify-center mt-20 mb-12"
     >
-      <FeatherIcon class="h-10 stroke-1 text-gray-600" name="users" />
-      <span class="text-gray-800 text-sm">You dont have any groups</span>
+      <FeatherIcon class="h-8 stroke-1 text-gray-600" name="users" />
+      <span class="text-gray-800 text-sm mt-2">No groups</span>
     </div>
 
     <NewRoleDialog
@@ -133,6 +135,9 @@ export default {
       let x = []
       this.UsersInRole.forEach((user) => x.push(user.email))
       return x
+    },
+    isDriveadmin() {
+      return this.$store.state.user.driveAdmin
     },
   },
   methods: {

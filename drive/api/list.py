@@ -72,6 +72,7 @@ def files(
         DriveEntity.allow_comments,
         DriveDocShare.read,
         DriveDocShare.user_name,
+        DriveDocShare.user_doctype,
         fn.Max(DriveDocShare.write).as_("write"),
         DriveDocShare.public,
         DriveDocShare.everyone,
@@ -81,6 +82,8 @@ def files(
     favourites_only = json.loads(favourites_only)
     recents_only = json.loads(recents_only)
     general_access = eval_general_access(entity_name)
+    if recents_only:
+        selectedFields.append(DriveRecent.last_interaction.as_("modified"))
 
     query = (
         frappe.qb.from_(DriveEntity)
@@ -184,6 +187,8 @@ def shared_with_user(
         DriveEntity.allow_download,
         DriveEntity.is_active,
         DriveEntity.allow_comments,
+        DriveDocShare.user_name,
+        DriveDocShare.user_doctype,
         DriveDocShare.read,
         fn.Max(DriveDocShare.write).as_("write"),
         DriveDocShare.everyone,
@@ -211,7 +216,7 @@ def shared_with_user(
         .where(DriveEntity.is_active == 1)
         .where(
             (UserGroupMember.user == frappe.session.user)
-            | (UserGroupMember.user == frappe.session.user)
+            | (DriveDocShare.user_name == frappe.session.user)
             | (DriveDocShare.everyone == 1)
         )
         .where(DriveDocShare.share_parent.isnull())
@@ -223,11 +228,11 @@ def shared_with_user(
             Case().when(DriveEntity.is_group == True, 1).else_(2),
             Order.desc,
         )
-    else:
-        query = query.orderby(
-            order_by.split()[0],
-            order=Order.desc if order_by.endswith("desc") else Order.asc,
-        )
+
+    query = query.orderby(
+        order_by.split()[0],
+        order=Order.desc if order_by.endswith("desc") else Order.asc,
+    )
     if file_kind_list:
         file_kind_list = json.loads(file_kind_list)
         file_kind_criterion = [DriveEntity.file_kind == file_kind for file_kind in file_kind_list]
@@ -311,11 +316,11 @@ def shared_by_user(
             Case().when(DriveEntity.is_group == True, 1).else_(2),
             Order.desc,
         )
-    else:
-        query = query.orderby(
-            order_by.split()[0],
-            order=Order.desc if order_by.endswith("desc") else Order.asc,
-        )
+
+    query = query.orderby(
+        order_by.split()[0],
+        order=Order.desc if order_by.endswith("desc") else Order.asc,
+    )
     if file_kind_list:
         file_kind_list = json.loads(file_kind_list)
         file_kind_criterion = [DriveEntity.file_kind == file_kind for file_kind in file_kind_list]
