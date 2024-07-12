@@ -2,14 +2,18 @@
   <div class="flex w-full">
     <TextEditor
       v-if="contentLoaded"
-      v-model="content"
+      v-model:yjsContent="yjsContent"
+      v-model:rawContent="rawContent"
+      v-model:lastSaved="lastSaved"
       v-model:settings="settings"
+      :user-list="allUsers"
       :fixed-menu="true"
       :bubble-menu="true"
-      placeholder="Start typing ..."
+      :timeout="timeout"
       :is-writable="isWritable"
       :entity-name="entityName"
       :entity="entity"
+      @mentioned-users="(val) => (mentionedUsers = val)"
       @save-document="saveDocument"
     />
     <ShareDialog
@@ -20,173 +24,213 @@
   </div>
 </template>
 
-<script>
-import TextEditor from "@/components/DocEditor/TextEditor.vue"
+<script setup>
 import { fromUint8Array, toUint8Array } from "js-base64"
+import {
+  ref,
+  computed,
+  inject,
+  onMounted,
+  defineAsyncComponent,
+  onBeforeUnmount,
+} from "vue"
+import { useRouter } from "vue-router"
+import { useStore } from "vuex"
 import { formatSize, formatDate } from "@/utils/format"
-import ShareDialog from "@/components/ShareDialog/ShareDialog.vue"
+import { createResource } from "frappe-ui"
+import { watchDebounced } from "@vueuse/core"
 
-export default {
-  components: {
-    TextEditor,
-    ShareDialog,
+const TextEditor = defineAsyncComponent(() =>
+  import("@/components/DocEditor/TextEditor.vue")
+)
+const ShareDialog = defineAsyncComponent(() =>
+  import("@/components/ShareDialog/ShareDialog.vue")
+)
+
+const store = useStore()
+const router = useRouter()
+const emitter = inject("emitter")
+
+const props = defineProps({
+  entityName: {
+    type: String,
+    required: false,
+    default: "",
   },
-  props: {
-    entityName: {
-      type: String,
-      required: false,
-      default: "",
+})
+
+// Reactive data properties
+const oldTitle = ref(null)
+const title = ref(null)
+const yjsContent = ref(null)
+const settings = ref(null)
+const rawContent = ref(null)
+const contentLoaded = ref(false)
+const isWritable = ref(false)
+const entity = ref(null)
+const allUsers = ref([])
+const mentionedUsers = ref()
+const showShareDialog = ref(false)
+const timeout = ref(1000 + Math.floor(Math.random() * 3000))
+const saveCount = ref(0)
+const lastSaved = ref(0)
+const titleVal = computed(() => title.value || oldTitle.value)
+const comments = computed(() => store.state.allComments)
+const userId = computed(() => store.state.auth.user_id)
+
+setTimeout(() => {
+  watchDebounced(
+    rawContent,
+    () => {
+      const now = Date.now()
+      if (now - lastSaved.value >= timeout.value) {
+        saveDocument()
+      }
     },
-  },
-  data() {
-    return {
-      oldTitle: null,
-      title: null,
-      content: null,
-      settings: null,
-      contentLoaded: false,
-      document: null,
-      isWritable: false,
-      entity: null,
-      beforeUnmountSaveDone: false,
-      showShareDialog: false,
-    }
-  },
-  computed: {
-    titleVal() {
-      return this.title ? this.title : this.oldTitle
-    },
-    currentFolderID() {
-      return this.$store.state.currentFolderID
-    },
-    isLoggedIn() {
-      return this.$store.getters.isLoggedIn
-    },
-    comments() {
-      return this.$store.state.allComments
-    },
-    userId() {
-      return this.$store.state.auth.user_id
-    },
-  },
-  mounted() {
-    this.$resources.getDocument
-      .fetch()
-      .then(() => {
-        this.title = this.$resources.getDocument.data.title
-        this.oldTitle = this.$resources.getDocument.title
-        this.content = this.$resources.getDocument.data.content
-        this.document = this.$resources.getDocument.data.document
-        this.isWritable =
-          this.$resources.getDocument.data.owner === this.userId ||
-          !!this.$resources.getDocument.data.write
-        this.$store.commit("setHasWriteAccess", this.isWritable)
-        this.$resources.getDocument.data.owner =
-          this.$resources.getDocument.data.owner === this.userId
-            ? "You"
-            : this.$resources.getDocument.data.owner
-        this.entity = this.$resources.getDocument.data
-      })
-      .then(() => {
-        this.content = toUint8Array(this.$resources.getDocument.data.content)
-        this.contentLoaded = true
-        let currentBreadcrumbs = []
-        currentBreadcrumbs = this.$store.state.currentBreadcrumbs
-        if (
-          !currentBreadcrumbs[currentBreadcrumbs.length - 1].route.includes(
-            "/document"
-          )
-        ) {
-          currentBreadcrumbs.push({
-            label: this.title,
-            route: `/document/${this.entityName}`,
-          })
-          this.breadcrumbs = currentBreadcrumbs
-          this.$store.commit("setEntityInfo", [
-            this.$resources.getDocument.data,
-          ])
-          this.$store.commit("setCurrentBreadcrumbs", currentBreadcrumbs)
-        }
-        if (this.isWritable) {
-          this.timer = setInterval(() => {
-            this.$resources.updateDocument.submit({
-              entity_name: this.entityName,
-              doc_name: this.document,
-              title: this.titleVal,
-              content: fromUint8Array(this.content),
-              settings: this.settings,
-              comments: this.comments,
-              file_size: fromUint8Array(this.content).length,
-            })
-          }, 30000)
-        }
-      })
-    this.emitter.on("showShareDialog", () => {
-      this.showShareDialog = true
+    { debounce: timeout.value, maxWait: 30000 }
+  )
+}, 1500)
+
+const saveDocument = () => {
+  if (isWritable.value) {
+    updateDocument.submit({
+      entity_name: props.entityName,
+      doc_name: entity.value.document,
+      title: titleVal.value,
+      content: fromUint8Array(yjsContent.value),
+      raw_content: rawContent.value,
+      settings: settings.value,
+      comments: comments.value,
+      mentions: mentionedUsers.value,
+      file_size: fromUint8Array(yjsContent.value).length,
     })
+  }
+}
+
+const getDocument = createResource({
+  url: "drive.api.permissions.get_entity_with_permissions",
+  method: "GET",
+  auto: true,
+  params: {
+    entity_name: props.entityName,
   },
-  beforeUnmount() {
-    clearInterval(this.timer)
-  },
-  methods: {
-    saveDocument() {
-      if (this.isWritable) {
-        this.$resources.updateDocument.submit({
-          entity_name: this.entityName,
-          doc_name: this.document,
-          title: this.titleVal,
-          content: fromUint8Array(this.content),
-          settings: this.settings,
-          comments: this.comments,
-          file_size: fromUint8Array(this.content).length,
+  onSuccess(data) {
+    data.size_in_bytes = data.file_size
+    data.file_size = formatSize(data.file_size)
+    data.modified = formatDate(data.modified)
+    data.creation = formatDate(data.creation)
+    store.commit("setEntityInfo", [data])
+    if (!data.settings) {
+      data.settings =
+        '{ "docWidth": false, "docSize": true, "docFont": "font-fd-sans", "docHeader": false}'
+    }
+    settings.value = JSON.parse(data.settings)
+    title.value = data.title
+    oldTitle.value = data.title
+    yjsContent.value = toUint8Array(data.content)
+    rawContent.value = data.raw_content
+    isWritable.value = data.owner === userId.value || !!data.write
+    store.commit("setHasWriteAccess", isWritable)
+    data.owner = data.owner === userId.value ? "You" : data.owner
+    entity.value = data
+    lastSaved.value = Date.now()
+    contentLoaded.value = true
+    let currentBreadcrumbs = [
+      {
+        label: "Shared",
+        route: "/shared",
+      },
+    ]
+    const root_item = data.breadcrumbs[0]
+    if (root_item.name === store.state.homeFolderID) {
+      currentBreadcrumbs = [
+        {
+          label: "Home",
+          route: "/home",
+        },
+      ]
+      data.breadcrumbs.shift()
+    }
+    data.breadcrumbs.forEach((item, idx) => {
+      if (idx === data.breadcrumbs.length - 1) {
+        currentBreadcrumbs.push({
+          label: item.title,
+          route: "/document/" + item.name,
+        })
+      } else {
+        currentBreadcrumbs.push({
+          label: item.title,
+          route: "/folder/" + item.name,
         })
       }
-    },
+    })
+    store.commit("setCurrentBreadcrumbs", currentBreadcrumbs)
   },
-  resources: {
-    updateDocument() {
-      return {
-        url: "drive.api.files.save_doc",
-        debounce: 0,
-        onError(data) {
-          console.log(data)
-        },
-        auto: false,
-      }
-    },
-    getDocument() {
-      return {
-        url: "drive.api.permissions.get_entity_with_permissions",
-        method: "GET",
-        params: {
-          entity_name: this.entityName,
-        },
-        onSuccess(data) {
-          data.size_in_bytes = data.file_size
-          data.file_size = formatSize(data.file_size)
-          data.modified = formatDate(data.modified)
-          data.creation = formatDate(data.creation)
-          this.$store.commit("setEntityInfo", [data])
-          if (!data.settings) {
-            data.settings =
-              '{ "docWidth": false, "docSize": true, "docFont": "font-fd-sans", "docHeader": false}'
-          }
-          this.settings = JSON.parse(data.settings)
-        },
-        onError(error) {
-          if (error && error.exc_type === "PermissionError") {
-            this.$store.commit("setError", {
-              iconName: "alert-triangle",
-              iconClass: "fill-amber-500 stroke-white",
-              primaryMessage: "Forbidden",
-              secondaryMessage: "Insufficient permissions for this resource",
-            })
-          }
-          this.$router.replace({ name: "Error" })
-        },
-        auto: false,
-      }
-    },
+  onError(error) {
+    if (error && error.exc_type === "PermissionError") {
+      store.commit("setError", {
+        iconName: "alert-triangle",
+        iconClass: "fill-amber-500 stroke-white",
+        primaryMessage: "Forbidden",
+        secondaryMessage: "Insufficient permissions for this resource",
+      })
+    }
+    router.replace({ name: "Error" })
   },
-}
+})
+
+const updateDocument = createResource({
+  url: "drive.api.files.save_doc",
+  debounce: 0,
+  auto: false,
+  onSuccess() {
+    lastSaved.value = Date.now()
+    saveCount.value++
+  },
+  onError(data) {
+    console.log(data)
+  },
+})
+
+onMounted(() => {
+  emitter.on("showShareDialog", () => {
+    showShareDialog.value = true
+  })
+})
+
+onBeforeUnmount(() => {
+  if (saveCount.value) {
+    saveDocument()
+  }
+})
+
+let fetchAllUsers = createResource({
+  url: "drive.utils.users.get_users_with_drive_user_role_and_groups",
+  method: "GET",
+  auto: true,
+  onSuccess(data) {
+    data.forEach(function (item) {
+      if (item.name) {
+        item.value = item.name
+        item.label = item.name
+        item.type = "User Group"
+        delete item.name
+        return
+      }
+      item.value = item.email
+      item.label = item.full_name.trimEnd()
+      item.type = "User"
+      delete item.email
+      delete item.full_name
+    })
+    allUsers.value = data
+  },
+  onError(error) {
+    if (error.messages) {
+      this.errorMessage = error.messages.join("\n")
+    } else {
+      this.errorMessage = error.message
+    }
+  },
+})
 </script>

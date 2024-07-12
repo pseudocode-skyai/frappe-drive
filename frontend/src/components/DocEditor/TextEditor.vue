@@ -1,5 +1,5 @@
 <template>
-  <div v-if="editor" class="flex-col w-full overflow-y-scroll">
+  <div v-if="editor && initComplete" class="flex-col w-full overflow-y-auto">
     <div
       :class="[
         settings.docFont,
@@ -18,25 +18,30 @@
         autocapitalize="true"
         spellcheck="true"
         :editor="editor"
+        @keydown.enter.passive="handleEnterKey"
       />
     </div>
+    <TableBubbleMenu v-if="isWritable" :editor="editor" />
     <BubbleMenu
       v-if="editor"
       v-show="!forceHideBubbleMenu"
-      v-on-outside-click="toggleCommentMenu"
-      :update-delay="250"
-      :tippy-options="{ animation: 'shift-away' }"
+      plugin-key="main"
       :should-show="shouldShow"
       :editor="editor"
     >
       <Menu :buttons="bubbleMenuButtons" />
     </BubbleMenu>
   </div>
-  <DocMenuAndInfoBar ref="MenuBar" :editor="editor" :settings="settings" />
+  <DocMenuAndInfoBar
+    v-if="editor && initComplete"
+    ref="MenuBar"
+    :editor="editor"
+    :settings="settings"
+  />
   <FilePicker
     v-if="showFilePicker"
     v-model="showFilePicker"
-    :suggested-tab-index="1"
+    :suggested-tab-index="0"
     @success="
       (val) => {
         pickedFile = val
@@ -54,33 +59,23 @@
 <script>
 import "tippy.js/animations/shift-away.css"
 import { normalizeClass, computed } from "vue"
-import {
-  Editor,
-  EditorContent,
-  BubbleMenu,
-  isTextSelection,
-} from "@tiptap/vue-3"
+import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-3"
+import { Table } from "./Table"
 import StarterKit from "@tiptap/starter-kit"
 import Underline from "@tiptap/extension-underline"
 import Placeholder from "@tiptap/extension-placeholder"
 import TextAlign from "@tiptap/extension-text-align"
-import Table from "@tiptap/extension-table"
-import TableCell from "@tiptap/extension-table-cell"
-import TableHeader from "@tiptap/extension-table-header"
-import TableRow from "@tiptap/extension-table-row"
 import CharacterCount from "@tiptap/extension-character-count"
 import Link from "@tiptap/extension-link"
 import Typography from "@tiptap/extension-typography"
-/* import TextStyle from "@tiptap/extension-text-style"; */
-/* import Highlight from "@tiptap/extension-highlight";
- */ import FontFamily from "@tiptap/extension-font-family"
+import TableBubbleMenu from "./Table/menus/TableBubbleMenu.vue"
+import FontFamily from "@tiptap/extension-font-family"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
 import { FontSize } from "./font-size"
 import { Highlight } from "./backgroundColor"
 import { TextStyle } from "./text-style"
 import { Color } from "@tiptap/extension-color"
-import configureMention from "./mention"
 import { detectMarkdown, markdownToHTML } from "../../utils/markdown"
 import { DOMParser } from "prosemirror-model"
 import { onOutsideClickDirective } from "frappe-ui"
@@ -92,18 +87,19 @@ import Collaboration from "@tiptap/extension-collaboration"
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor"
 import * as Y from "yjs"
 import { WebrtcProvider } from "y-webrtc"
+import { IndexeddbPersistence } from "y-indexeddb"
 import { createEditorButton } from "./utils"
 import DocMenuAndInfoBar from "./DocMenuAndInfoBar.vue"
 import Menu from "./Menu.vue"
 import { toast } from "@/utils/toasts.js"
 import { PageBreak } from "./Pagebreak"
-import { convertToHtml } from "mammoth"
 import FilePicker from "@/components/FilePicker.vue"
 import { ResizableMedia } from "./resizeableMedia"
 import { uploadDriveEntity } from "../../utils/chunkFileUpload"
-import { Details } from "./DetailsExtension"
-import { DetailsSummary } from "./DetailsExtension"
-import { DetailsContent } from "./DetailsExtension"
+import configureMention from "./Mention/mention"
+
+import Commands from "./Suggestion/suggestionExtension"
+import suggestion from "./Suggestion/suggestion"
 
 export default {
   name: "TextEditor",
@@ -113,6 +109,7 @@ export default {
     Menu,
     DocMenuAndInfoBar,
     FilePicker,
+    TableBubbleMenu,
   },
   directives: {
     onOutsideClick: onOutsideClickDirective,
@@ -125,10 +122,6 @@ export default {
   inheritAttrs: false,
   expose: ["editor"],
   props: {
-    fixedMenu: {
-      type: [Boolean, Array],
-      default: false,
-    },
     settings: {
       type: Object,
       default: null,
@@ -148,33 +141,38 @@ export default {
       type: String,
       required: false,
     },
-    modelValue: {
+    yjsContent: {
       type: Uint8Array,
       required: true,
       default: null,
     },
-    placeholder: {
+    lastSaved: {
+      type: Number,
+      required: true,
+    },
+    rawContent: {
       type: String,
-      default: "",
+      required: true,
+      default: null,
     },
     isWritable: {
       type: Boolean,
       default: false,
     },
-    bubbleMenu: {
-      type: [Boolean, Array],
-      default: false,
-    },
-    bubbleMenuOptions: {
+    userList: {
       type: Object,
-      default: () => ({}),
-    },
-    mentions: {
-      type: Array,
-      default: () => [],
+      required: true,
+      default: null,
     },
   },
-  emits: ["update:modelValue", "updateTitle", "saveDocument"],
+  emits: [
+    "update:yjsContent",
+    "updateTitle",
+    "saveDocument",
+    "mentionedUsers",
+    "update:rawContent",
+    "update:lastSaved",
+  ],
   data() {
     return {
       docWidth: this.settings.docWidth,
@@ -184,7 +182,11 @@ export default {
       defaultFont: "font-sans",
       buttons: [],
       forceHideBubbleMenu: false,
+      synced: false,
+      peercount: 0,
+      initComplete: true,
       provider: null,
+      document: null,
       awareness: null,
       connectedUsers: null,
       localStore: null,
@@ -201,8 +203,9 @@ export default {
         uuid: "",
         comments: [],
       },
+      implicitTitle: "",
       allComments: [],
-      originalTitle: this.entity.title,
+      isNewDocument: this.entity.title.includes("Untitled Document"),
     }
   },
   computed: {
@@ -235,37 +238,25 @@ export default {
     currentUserImage() {
       return this.$store.state.user.imageURL
     },
-    editorProps() {
-      return {
-        attributes: {
-          class: normalizeClass([
-            `ProseMirror prose prose-sm prose-table:table-fixed prose-td:p-2 prose-th:p-2 prose-td:border prose-th:border prose-td:border-gray-300 prose-th:border-gray-300 prose-td:relative prose-th:relative prose-th:bg-gray-100 rounded-b-lg max-w-[unset] pb-[50vh] md:px-[70px]`,
-          ]),
-        },
-        clipboardTextParser: (text, $context) => {
-          if (!detectMarkdown(text)) return
-          if (
-            !confirm(
-              "Do you want to convert markdown content to HTML before pasting?"
-            )
-          )
-            return
-
-          let dom = document.createElement("div")
-          dom.innerHTML = markdownToHTML(text)
-          let parser =
-            this.editor.view.someProp("clipboardParser") ||
-            this.editor.view.someProp("domParser") ||
-            DOMParser.fromSchema(this.editor.schema)
-          return parser.parseSlice(dom, {
-            preserveWhitespace: true,
-            context: $context,
-          })
-        },
-      }
-    },
   },
   watch: {
+    isNewDocument: {
+      handler(val) {
+        if (val) {
+          this.$store.state.passiveRename = true
+        } else {
+          this.$store.state.passiveRename = false
+        }
+      },
+      immediate: true,
+    },
+    lastSaved(newVal) {
+      const ymap = this.document.getMap("docinfo")
+      const lastSaved = ymap.get("lastsaved")
+      if (newVal > lastSaved) {
+        ymap.set("lastsaved", newVal)
+      }
+    },
     settings(newVal) {
       switch (newVal.toLowerCase()) {
         case "sans":
@@ -307,19 +298,6 @@ export default {
     editable(value) {
       this.editor.setEditable(value)
     },
-    editorProps: {
-      deep: true,
-      attributes: {
-        spellcheck: "false",
-      },
-      handler(value) {
-        if (this.editor) {
-          this.editor.setOptions({
-            editorProps: value,
-          })
-        }
-      },
-    },
   },
   mounted() {
     if (window.matchMedia("(max-width: 1500px)").matches) {
@@ -339,38 +317,81 @@ export default {
       this.showFilePicker = true
     })
     const doc = new Y.Doc()
-    Y.applyUpdate(doc, this.modelValue)
-    // Tiny test
-    // https://github.com/yjs/y-webrtc/blob/master/bin/server.js
+    const ymap = doc.getMap("docinfo")
+    ymap.set("lastsaved", this.lastSaved)
+    this.document = doc
 
-    /* const indexeddbProvider = new IndexeddbPersistence(
-      // Find a sane time to wipe IDB safely
-      "fdoc" + JSON.stringify(this.entityName),
+    const indexeddbProvider = new IndexeddbPersistence(
+      "fdoc-" + JSON.stringify(this.entityName),
       doc
-    ); */
+    )
+    indexeddbProvider.on("synced", () => {
+      this.initComplete = true
+    })
+    Y.applyUpdate(doc, this.yjsContent)
     const webrtcProvider = new WebrtcProvider(
-      "fdoc" + JSON.stringify(this.entityName),
+      "fdoc-" + JSON.stringify(this.entityName),
       doc,
       { signaling: ["wss://network.arjunchoudhary.com"] }
     )
+    ymap.observe(() => {
+      this.$emit("update:lastSaved", ymap.get("lastsaved"))
+    })
     this.provider = webrtcProvider
-    this.awareness = this.provider.awareness.getStates()
-    /* this.localStore = indexeddbProvider; */
+    this.awareness = this.provider.awareness
+    this.localStore = indexeddbProvider
     let componentContext = this
     document.addEventListener("keydown", this.saveDoc)
     this.editor = new Editor({
       editable: this.editable,
-      editorProps: this.editorProps,
+      autofocus: true,
+      editorProps: {
+        attributes: {
+          class: normalizeClass([
+            `ProseMirror prose prose-sm prose-table:table-fixed prose-td:p-2 prose-th:p-2 prose-td:border prose-th:border prose-td:border-gray-300 prose-th:border-gray-300 prose-td:relative prose-th:relative prose-th:bg-gray-100 rounded-b-lg max-w-[unset] pb-[50vh] md:px-[70px]`,
+          ]),
+        },
+        clipboardTextParser: (text, $context) => {
+          if (!detectMarkdown(text)) return
+          if (
+            !confirm(
+              "Do you want to convert markdown content to HTML before pasting?"
+            )
+          )
+            return
+
+          let dom = document.createElement("div")
+          dom.innerHTML = markdownToHTML(text)
+          let parser =
+            this.editor.view.someProp("clipboardParser") ||
+            this.editor.view.someProp("domParser") ||
+            DOMParser.fromSchema(this.editor.schema)
+          return parser.parseSlice(dom, {
+            preserveWhitespace: true,
+            context: $context,
+          })
+        },
+      },
       onCreate() {
         componentContext.findCommentsAndStoreValues()
-        componentContext.$emit("update:modelValue", Y.encodeStateAsUpdate(doc))
         componentContext.updateConnectedUsers(componentContext.editor)
       },
       onUpdate() {
         componentContext.updateConnectedUsers(componentContext.editor)
-        componentContext.$emit("update:modelValue", Y.encodeStateAsUpdate(doc))
         componentContext.findCommentsAndStoreValues()
         componentContext.setCurrentComment()
+        componentContext.$emit(
+          "update:rawContent",
+          componentContext.editor.getHTML()
+        )
+        componentContext.$emit(
+          "mentionedUsers",
+          componentContext.parseMentions(componentContext.editor.getJSON())
+        )
+        componentContext.$emit(
+          "update:yjsContent",
+          Y.encodeStateAsUpdate(componentContext.document)
+        )
       },
       onSelectionUpdate() {
         componentContext.updateConnectedUsers(componentContext.editor)
@@ -392,8 +413,9 @@ export default {
           },
           codeBlock: {
             HTMLAttributes: {
+              spellcheck: false,
               class:
-                "not-prose my-5 px-4 pt-4 pb-2 text-[0.9em] font-mono text-black bg-gray-50 rounded border border-gray-300 overflow-x-scroll",
+                "not-prose my-5 px-4 py-2 text-[0.9em] font-mono text-black bg-gray-50 rounded border border-gray-300 overflow-x-auto",
             },
           },
           blockquote: {
@@ -423,18 +445,10 @@ export default {
             },
           },
         }),
-        Details.configure({
-          persist: true,
-          HTMLAttributes: {
-            class: "details",
-            openClassName: "details-is-open",
-          },
+        Commands.configure({
+          suggestion,
         }),
-        DetailsSummary,
-        DetailsContent,
-        Table.configure({
-          resizable: true,
-        }),
+        Table,
         FontFamily.configure({
           types: ["textStyle"],
         }),
@@ -464,15 +478,15 @@ export default {
           isCommentModeOn: this.isCommentModeOn,
         }),
         Placeholder.configure({
-          placeholder: "Start typing",
+          placeholder: "Press / for commands",
         }),
         Highlight.configure({
           multicolor: true,
         }),
-        configureMention(this.mentions),
+        configureMention(this.userList),
         TaskList.configure({
           HTMLAttributes: {
-            class: "",
+            class: "not-prose",
           },
         }),
         TaskItem.configure({
@@ -482,9 +496,6 @@ export default {
         }),
         CharacterCount,
         Underline,
-        TableRow,
-        TableHeader,
-        TableCell,
         Typography,
         TextStyle,
         FontSize.configure({
@@ -506,42 +517,52 @@ export default {
         this.$refs.MenuBar.tab = 5
       }
     })
-    setTimeout(() => {
-      this.$emit("saveDocument")
-    }, 10000)
+    window.addEventListener("offline", () => {
+      this.provider.disconnect()
+      this.synced = false
+      this.connected = false
+      this.peercount = 0
+    })
+    window.addEventListener("online", () => {
+      this.provider.connect()
+    })
+    this.provider.on("status", (e) => {
+      this.connected = e.connected
+    })
+    this.provider.on("peers", (e) => {
+      this.peercount = e.webrtcPeers.length
+    })
+    this.awareness.on("update", () => {
+      this.$store.commit(
+        "setConnectedUsers",
+        this.editor?.storage.collaborationCursor.users
+      )
+    })
+    this.provider.on("synced", (e) => {
+      this.synced = e.synced
+    })
   },
   updated() {
-    let content = this.editor.state.doc.firstChild.textContent.slice(0, 35)
-    if (this.originalTitle.includes("Untitled Document")) {
-      if (content.length) {
-        this.$store.state.entityInfo[0].title = content
-        this.$resources.rename.submit({
-          entity_name: this.entityName,
-          new_title: content,
-        })
-      } else {
-        this.$store.state.entityInfo[0].title = this.originalTitle
-      }
+    if (this.isNewDocument) {
+      this.evalImplicitTitle()
     }
   },
   beforeUnmount() {
-    //console.log(this.editor.getHTML());
     this.updateConnectedUsers(this.editor)
+    this.$store.state.passiveRename = false
     document.removeEventListener("keydown", this.saveDoc)
     this.editor.destroy()
-    /* this.localStore.clearData(); */
+    this.document.destroy()
+    this.provider.disconnect()
     this.provider.destroy()
     this.provider = null
     this.editor = null
   },
   methods: {
-    evalTitle() {
-      let content = this.editor.state.doc.firstChild.textContent.slice(0, 35)
-      if (this.entity.title.includes("Untitled Document")) {
-        this.$store.state.entityInfo[0]["title"] = content
-      }
-      if (!content.length) {
-        this.$store.state.entityInfo[0]["title"] = this.entity.title
+    handleEnterKey() {
+      if (this.$store.state.passiveRename) {
+        if (!this.implicitTitle.length) return
+        this.isNewDocument = false
       }
     },
     updateConnectedUsers(editor) {
@@ -572,7 +593,7 @@ export default {
         )
         if (res.ok) {
           let blob = await res.arrayBuffer()
-
+          const { convertToHtml } = await import("mammoth")
           convertToHtml({ arrayBuffer: blob })
             .then(function (result) {
               ctx.editor.commands.insertContent(result.value)
@@ -597,7 +618,12 @@ export default {
         return
       }
       e.preventDefault()
-      this.$emit("saveDocument")
+      this.$emit("update:rawContent", this.editor.getHTML())
+      this.$emit("update:yjsContent", Y.encodeStateAsUpdate(this.document))
+      this.$emit("mentionedUsers", this.parseMentions(this.editor.getJSON()))
+      if (this.synced || this.peercount === 0) {
+        this.$emit("saveDocument")
+      }
       toast({
         title: "Document saved",
         position: "bottom-right",
@@ -654,7 +680,6 @@ export default {
         }
       }
     },
-
     printEditorContent() {
       const editorContent = document.getElementById("editor-capture")
       if (editorContent) {
@@ -663,31 +688,15 @@ export default {
       }
       return false
     },
-    shouldShow({ view, state, from, to }) {
-      const { doc, selection } = state
-      const { empty } = selection
-
-      // Sometime check for `empty` is not enough.
-      // Doubleclick an empty paragraph returns a node size of 2.
-      // So we check also for an empty text size.
-      const isEmptyTextBlock =
-        !doc.textBetween(from, to).length && isTextSelection(state.selection)
-      const isMediaSelected =
-        this.editor.isActive("image") ||
-        this.editor.isActive("video") ||
-        this.editor.isActive("resizableMedia")
-      if (isMediaSelected) {
-        return false
-      } else if (this.bubbleMenuButtons.length === 1) {
-        return !(empty || isEmptyTextBlock)
-      } else {
-        return !(!view.hasFocus() || empty || isEmptyTextBlock)
+    shouldShow: ({ state }) => {
+      const { from, to } = state.selection
+      // Check if the selection is within a text node
+      const node = state.doc.nodeAt(from)
+      if (node && node.type.name === "text") {
+        // Ensure the selection is not empty
+        return from !== to
       }
-    },
-    toggleCommentMenu() {
-      if (this.showCommentMenu === true) {
-        this.showCommentMenu = false
-      }
+      return false // Hide the menu if the selection is outside a text node
     },
     RndColor() {
       const max = 255
@@ -794,6 +803,34 @@ export default {
         this.commentText = ""
       }
     },
+    parseMentions(data) {
+      const tempMentions = (data.content || []).flatMap(this.parseMentions)
+      if (data.type === "mention") {
+        tempMentions.push({
+          id: data.attrs.id,
+          author: data.attrs.author,
+          type: data.attrs.type,
+        })
+      }
+      const uniqueMentions = [
+        ...new Set(tempMentions.map((item) => item.id)),
+      ].map((id) => tempMentions.find((item) => item.id === id))
+      return uniqueMentions
+    },
+    evalImplicitTitle() {
+      this.implicitTitle = this.editor.state.doc.textContent.trim().slice(0, 35)
+      this.implicitTitle = this.implicitTitle.trim()
+      if (this.implicitTitle.charAt(0) === "@") {
+        return
+      }
+      if (this.implicitTitle.length && this.$store.state.passiveRename) {
+        this.$store.state.entityInfo[0].title = this.implicitTitle
+        this.$resources.rename.submit({
+          entity_name: this.entityName,
+          new_title: this.implicitTitle,
+        })
+      }
+    },
   },
   resources: {
     rename() {
@@ -851,12 +888,12 @@ export default {
 }
 
 span[data-comment] {
-  background: rgb(228, 245, 233);
-  user-select: all;
-  padding: 0 2px 0 2px;
-  border-radius: 5px;
-  cursor: pointer;
+  background: rgba(255, 215, 0, 0.15);
+  border-bottom: 2px solid rgb(255, 210, 0);
+  user-select: text;
+  padding: 2px;
 }
+
 .collaboration-cursor__caret {
   border-left: 0px solid currentColor;
   border-right: 2px solid currentColor;
@@ -888,34 +925,34 @@ span[data-comment] {
 .my-task-item {
   display: flex;
 }
-
 .my-task-item input {
-  border-radius: 10px;
-  outline: none;
-  cursor: pointer;
-  margin-right: 5px;
+  border-radius: 4px;
+  outline: 0;
+  margin-right: 10px;
 }
 .my-task-item input[type="checkbox"]:hover {
-  outline: none;
-  background-color: #0d0d0d;
+  outline: 0;
+  background-color: #d6d6d6;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease;
 }
 .my-task-item input[type="checkbox"]:focus {
-  outline: none;
-  background-color: #0d0d0d;
+  outline: 0;
+  background-color: #5b5b5b;
 }
 .my-task-item input[type="checkbox"]:active {
-  outline: none;
-  background-color: #0d0d0d;
+  outline: 0;
+  background-color: #5b5b5b;
 }
 .my-task-item input[type="checkbox"]:checked {
-  outline: none;
-  background-color: #0d0d0d;
+  outline: 0;
+  background-color: #000000;
 }
 
 summary {
   display: flex;
   width: 100%;
-  padding: 0 2rem;
+  padding: 0 2.5rem;
   box-sizing: border-box;
   pointer-events: none;
   outline: none;
@@ -926,67 +963,29 @@ summary p {
   margin-bottom: 0.15rem !important;
 }
 
-/*transition: 0.3s;*/
-.details-arrow {
+.grip-row.selected {
+  background-color: #e3f0fce2;
+  content: "✓";
+}
+.grip-column.selected {
+  background-color: #e3f0fce2;
+}
+
+.grip-column.selected::before {
+  content: "✓";
   position: absolute;
-  top: 0rem;
-  left: 0rem;
-  height: 2rem;
-  width: 2rem;
-  transition: transform 0.5s ease-in-out;
-  appearance: none;
-  box-sizing: border-box;
-  padding: 4px;
-  background: none;
-  cursor: pointer;
-  outline: none;
-}
-.details-arrow::before {
-  content: "▶";
-  color: var(--tw-prose-bullets);
+  color: white;
+  top: -25%;
+  left: 0%;
+  font-weight: 600;
 }
 
-div[data-type="details-content"] {
-  padding: 0rem 1.25rem;
-}
-
-.details-wrapper {
-  position: relative;
-}
-details {
-  min-height: 100%;
-  width: 100%;
-}
-
-details {
-  display: inline-block;
-  width: 100%; /* Adjust width as needed */
-}
-
-.details-wrapper_rendered .details-arrow {
-  pointer-events: none;
-}
-
-.details-wrapper_rendered summary {
-  transition: transform 0.3s;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.details-wrapper_rendered summary:hover {
-  background: #0d0d0d;
-}
-
-details[open] > summary {
-  border-bottom: 1px solid lightgray;
-}
-details[open] {
-  border-bottom: 1px solid lightgray;
-}
-
-details[open] + .details-arrow::before {
-  content: "▼";
-  color: var(--tw-prose-bullets);
-  transform: rotate(45deg);
+.grip-row.selected::before {
+  content: "✓";
+  position: absolute;
+  color: white;
+  top: -25%;
+  left: 0%;
+  font-weight: 600;
 }
 </style>

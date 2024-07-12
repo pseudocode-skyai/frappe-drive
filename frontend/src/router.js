@@ -33,6 +33,12 @@ function setRootBreadCrumb(to) {
 
 const routes = [
   {
+    path: "/notifications",
+    name: "Notifications",
+    component: () => import("@/pages/Notifications.vue"),
+    beforeEnter: [setRootBreadCrumb, clearStore],
+  },
+  {
     path: "/home",
     name: "Home",
     component: () => import("@/pages/Home.vue"),
@@ -85,14 +91,6 @@ const routes = [
     beforeEnter: [setRootBreadCrumb, clearStore],
   },
   {
-    path: "/login",
-    name: "Login",
-    component: () => import("@/pages/Login.vue"),
-    meta: {
-      isPublicRoute: true,
-    },
-  },
-  {
     path: "/signup",
     name: "Signup",
     component: () => import("@/pages/Signup.vue"),
@@ -104,6 +102,13 @@ const routes = [
     path: "/test",
     name: "Test",
     component: () => import("@/pages/Test.vue"),
+  },
+  {
+    path: "/login",
+    name: "Login",
+    redirect: () => {
+      window.location.href = "/login"
+    },
   },
   {
     path: "/:pathMatch(.*)*/",

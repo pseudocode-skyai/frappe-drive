@@ -2,7 +2,6 @@ import frappe
 import os
 import re
 import json
-from frappe.utils.nestedset import rebuild_tree, get_ancestors_of
 from pypika import Order, Case, functions as fn
 from pathlib import Path
 from werkzeug.wrappers import Response
@@ -26,6 +25,7 @@ import magic
 from datetime import datetime
 import urllib.parse
 from frappe.utils import cint
+from drive.api.notifications import notify_mentions
 
 
 def if_folder_exists(folder_name, parent):
@@ -208,7 +208,7 @@ def create_drive_entity(name, title, parent, path, file_size, file_ext, mime_typ
             "name": name,
             "title": title,
             "parent_drive_entity": parent,
-            "path": path,
+            "path": str(path),
             "file_size": file_size,
             "file_ext": file_ext,
             "mime_type": mime_type,
@@ -278,7 +278,7 @@ def get_doc_content(drive_document_name):
     drive_document = frappe.db.get_value(
         "Drive Document",
         drive_document_name,
-        ["content", "settings"],
+        ["content", "raw_content", "settings"],
         as_dict=1,
     )
     return drive_document
@@ -291,7 +291,7 @@ def passive_rename(entity_name, new_title):
 
 
 @frappe.whitelist()
-def save_doc(entity_name, doc_name, content, file_size, settings=None):
+def save_doc(entity_name, doc_name, raw_content, content, file_size, mentions, settings=None):
     if not frappe.has_permission(
         doctype="Drive Entity",
         doc=entity_name,
@@ -302,12 +302,26 @@ def save_doc(entity_name, doc_name, content, file_size, settings=None):
     if settings:
         frappe.db.set_value("Drive Document", doc_name, "settings", json.dumps(settings))
     frappe.db.set_value("Drive Document", doc_name, "content", content)
+    frappe.db.set_value("Drive Document", doc_name, "raw_content", raw_content)
+    frappe.db.set_value("Drive Document", doc_name, "mentions", json.dumps(mentions))
     frappe.db.set_value("Drive Entity", entity_name, "file_size", file_size)
+    if json.dumps(mentions):
+        frappe.enqueue(
+            notify_mentions,
+            queue="long",
+            job_id=f"fdoc_{doc_name}",
+            deduplicate=True,
+            timeout=None,
+            now=False,
+            at_front=False,
+            entity_name=entity_name,
+            document_name=doc_name,
+        )
     return
 
 
 @frappe.whitelist(allow_guest=True)
-def get_file_content(entity_name, trigger_download=0):
+def get_file_content(entity_name, trigger_download=0):  #
     """
     Stream file content and optionally trigger download
 
@@ -837,9 +851,9 @@ def delete_entities(entity_names=None, clear_all=None):
     if not isinstance(entity_names, list):
         frappe.throw(f"Expected list but got {type(entity_names)}", ValueError)
     for entity in entity_names:
-        root_entity = get_ancestors_of("Drive Entity", entity)
+        root_entity = get_ancestors_of(entity)
         if root_entity:
-            root_entity = get_ancestors_of("Drive Entity", entity)[0]
+            root_entity = get_ancestors_of(entity)[0]
         else:
             root_entity = get_user_directory()
         owns_root_entity = frappe.has_permission(
@@ -1000,7 +1014,13 @@ def remove_or_restore(entity_names, move=False):
         frappe.throw(f"Expected list but got {type(entity_names)}", ValueError)
 
     def depth_zero_toggle_is_active(doc):
-        doc.is_active = 0 if doc.is_active else 1
+        if doc.is_active:
+            frappe.db.delete("Drive DocShare", {"share_name": doc.name})
+            doc.is_active = 0
+        else:
+            doc.is_active = 1
+            doc.inherit_permissions()
+
         frappe.db.set_value("Drive Entity", doc.name, "is_active", doc.is_active)
 
     for entity in entity_names:
@@ -1008,7 +1028,7 @@ def remove_or_restore(entity_names, move=False):
         if doc.owner != frappe.session.user:
             raise frappe.PermissionError("You do not have permission to remove this file")
         if doc.is_active:
-            entity_ancestors = get_ancestors_of("Drive Entity", entity)
+            entity_ancestors = get_ancestors_of(entity)
             if entity_ancestors:
                 doc.parent_before_trash = entity_ancestors[0]
                 doc.save()
@@ -1186,8 +1206,8 @@ def auto_delete_from_trash():
 def total_storage_used():
     DriveEntity = frappe.qb.DocType("Drive Entity")
     query = frappe.qb.from_(DriveEntity).select(fn.Sum(DriveEntity.file_size).as_("total_size"))
-    result = query.run(as_dict=False)
-    return result[0]
+    result = query.run(as_dict=True)
+    return result
 
 
 @frappe.whitelist()
@@ -1269,20 +1289,19 @@ def move(entity_names, new_parent=None):
         entity_names = json.loads(entity_names)
     if not isinstance(entity_names, list):
         frappe.throw(f"Expected list but got {type(entity_names)}", ValueError)
+
     for entity in entity_names:
         doc = frappe.get_doc("Drive Entity", entity)
         new_parent = new_parent or get_user_directory(doc.owner).name
+
         if new_parent == doc.parent_drive_entity:
             return doc
         is_group = frappe.db.get_value("Drive Entity", new_parent, "is_group")
         if not is_group:
             raise NotADirectoryError()
-        doc.parent_drive_entity = new_parent
-        title = get_new_title(doc.title, new_parent)
-        if title != doc.title:
-            doc.rename(title)
-        doc.inherit_permissions()
+        doc.move(new_parent)
         doc.save()
+
     return
 
 
@@ -1333,13 +1352,14 @@ def generate_upward_path(entity_name):
     """
     # CONCAT_WS('/', t.title, gp.path),
     entity_name = frappe.db.escape(entity_name)
-    return frappe.db.sql(
+    result = frappe.db.sql(
         f"""
         WITH RECURSIVE generated_path as ( 
         SELECT 
-            `tabDrive Entity`.title as path,
+            `tabDrive Entity`.title,
             `tabDrive Entity`.name,
-            `tabDrive Entity`.parent_drive_entity
+            `tabDrive Entity`.parent_drive_entity,
+            `tabDrive Entity`.owner
         FROM `tabDrive Entity` 
         WHERE `tabDrive Entity`.name = {entity_name}
 
@@ -1348,10 +1368,90 @@ def generate_upward_path(entity_name):
         SELECT 
             t.title,
             t.name,
-            t.parent_drive_entity
+            t.parent_drive_entity,
+            t.owner
         FROM generated_path as gp
         JOIN `tabDrive Entity` as t ON t.name = gp.parent_drive_entity) 
         SELECT * FROM generated_path;
     """,
         as_dict=1,
     )
+    return result[::-1]
+
+
+@frappe.whitelist()
+def get_ancestors_of(entity_name):
+    """
+    Return all parent nodes till the root node
+    """
+    # CONCAT_WS('/', t.title, gp.path),
+    entity_name = frappe.db.escape(entity_name)
+    result = frappe.db.sql(
+        f"""
+        WITH RECURSIVE generated_path as ( 
+        SELECT 
+            `tabDrive Entity`.name,
+            `tabDrive Entity`.parent_drive_entity
+        FROM `tabDrive Entity` 
+        WHERE `tabDrive Entity`.name = {entity_name}
+
+        UNION ALL
+
+        SELECT 
+            t.name,
+            t.parent_drive_entity
+        FROM generated_path as gp
+        JOIN `tabDrive Entity` as t ON t.name = gp.parent_drive_entity) 
+        SELECT name FROM generated_path;
+    """,
+        as_dict=0,
+    )
+    # Match the output of frappe/nested.py get_ancestors_of
+    flattened_list = [item for sublist in result for item in sublist]
+    flattened_list.pop(0)
+    return flattened_list
+
+
+@frappe.whitelist(allow_guest=True)
+def get_shared_breadcrumbs(share_name):
+    """
+    given a node return the root. stops when share_parent IS NULL
+    given a node and parent travel till
+    the child of the parent_entity and append the parent_entity
+    """
+    # CONCAT_WS('/', t.title, gp.path),
+    share_name = frappe.db.escape(share_name)
+    result = frappe.db.sql(
+        f"""
+        WITH RECURSIVE generated_path as ( 
+        SELECT 
+            `tabDrive DocShare`.name,
+            `tabDrive DocShare`.share_name,
+            `tabDrive DocShare`.share_parent
+        FROM `tabDrive DocShare` 
+        WHERE `tabDrive DocShare`.name = {share_name}
+
+        UNION ALL
+
+        SELECT 
+            `tabDrive DocShare`.name,
+            `tabDrive DocShare`.share_name,
+            `tabDrive DocShare`.share_parent
+        FROM generated_path as gp
+        JOIN `tabDrive DocShare` ON `tabDrive DocShare`.name = gp.share_parent
+        ) 
+        SELECT * FROM generated_path;
+    """,
+        as_dict=1,
+    )
+    share_breadcrumbs = []
+    for i in result:
+        share_breadcrumbs.append(
+            frappe.get_value(
+                "Drive Entity",
+                i.share_name,
+                ["name", "title", "parent_drive_entity", "owner"],
+                as_dict=1,
+            )
+        )
+    return share_breadcrumbs[::-1]

@@ -40,6 +40,7 @@ import { Dialog, Input, ErrorMessage, Badge } from "frappe-ui"
 import { useFocus } from "@vueuse/core"
 import { useRoute } from "vue-router"
 import { useStore } from "vuex"
+import { toast } from "../utils/toasts.js"
 
 export default {
   name: "RenameDialog",
@@ -94,10 +95,11 @@ export default {
       return this.entity?.name
     },
     fullName() {
+      let trimmed_name = this.newName.trim()
       if (this.entity?.file_ext) {
-        return this.newName + this.entity.file_ext
+        return trimmed_name + this.entity.file_ext
       } else {
-        return this.newName
+        return trimmed_name
       }
     },
     open: {
@@ -121,10 +123,16 @@ export default {
         params: {
           method: "rename",
           entity_name: this.entityName,
-          new_title: this.fullName.trim(),
+          new_title: this.fullName,
         },
         onSuccess(data) {
+          toast({
+            title: `Renamed ${this.$store.state.entityInfo[0].title} to ${this.newName}`,
+            position: "bottom-right",
+            timeout: 2,
+          })
           this.$store.state.entityInfo[0].title = data.title
+          this.$store.state.passiveRename = false
           this.$emit("success", data)
           this.newName = ""
           this.extension = ""

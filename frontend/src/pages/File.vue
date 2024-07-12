@@ -147,28 +147,36 @@ let file = createResource({
     store.commit("setEntityInfo", [data])
   },
   onSuccess(data) {
-    let currentBreadcrumbs = []
-    currentBreadcrumbs = store.state.currentBreadcrumbs
-    if (
-      !currentBreadcrumbs[currentBreadcrumbs.length - 1].route.includes("/file")
-    ) {
-      currentBreadcrumbs.push({
-        label: data.title,
-        route: `/file/${props.entityName}`,
-      })
-      store.breadcrumbs = currentBreadcrumbs
-      store.commit("setCurrentBreadcrumbs", currentBreadcrumbs)
-    } else {
-      let scrolledFileBreadcrumb = {
-        label: data.title,
-        route: `/file/${data.name}`,
-      }
-      currentBreadcrumbs.splice(
-        currentBreadcrumbs.length - 1,
-        1,
-        scrolledFileBreadcrumb
-      )
+    let currentBreadcrumbs = [
+      {
+        label: "Shared",
+        route: "/shared",
+      },
+    ]
+    const root_item = data.breadcrumbs[0]
+    if (root_item.name === store.state.homeFolderID) {
+      currentBreadcrumbs = [
+        {
+          label: "Home",
+          route: "/home",
+        },
+      ]
+      data.breadcrumbs.shift()
     }
+    data.breadcrumbs.forEach((item, idx) => {
+      if (idx === data.breadcrumbs.length - 1) {
+        currentBreadcrumbs.push({
+          label: item.title,
+          route: "/file/" + item.name,
+        })
+      } else {
+        currentBreadcrumbs.push({
+          label: item.title,
+          route: "/folder/" + item.name,
+        })
+      }
+    })
+    store.commit("setCurrentBreadcrumbs", currentBreadcrumbs)
   },
   onError(error) {
     if (error && error.exc_type === "PermissionError") {

@@ -19,9 +19,10 @@ const store = createStore({
       user_id: getCookies().user_id,
     },
     user: {
+      systemUser: getCookies().system_user === "yes",
       fullName: getCookies().full_name,
       imageURL: getCookies().user_image,
-      isSystemUser: getCookies().system_user === "yes",
+      driveAdmin: false,
     },
     error: {
       iconName: "x-circle",
@@ -39,17 +40,19 @@ const store = createStore({
     view: JSON.parse(localStorage.getItem("view")) || "grid",
     shareView: JSON.parse(localStorage.getItem("shareView")) || "with",
     activeFilters: [],
+    notifCount: 0,
     entityInfo:
       JSON.parse(localStorage.getItem("selectedEntities")) ||
-      JSON.parse(localStorage.getItem("currentFolder")),
-    currentFolder: JSON.parse(localStorage.getItem("currentFolder")) || null,
+      JSON.parse(localStorage.getItem("currentFolder")) ||
+      [],
+    currentFolder: JSON.parse(localStorage.getItem("currentFolder")) || [],
     currentViewEntites: get("currentViewEntites") || [],
     pasteData: { entities: [], action: null },
     showInfo: JSON.parse(localStorage.getItem("showInfo")) || false,
     hasWriteAccess: false,
     // Default to empty string to upload to user Home folder
     currentFolderID: "",
-    homeFolderID: "",
+    homeFolderID: localStorage.getItem("homeFolderID"),
     currentBreadcrumbs: JSON.parse(
       localStorage.getItem("currentBreadcrumbs")
     ) || [{ label: "Home", route: "/home" }],
@@ -58,6 +61,7 @@ const store = createStore({
     IsSidebarExpanded: JSON.parse(
       localStorage.getItem("IsSidebarExpanded") || true
     ),
+    passiveRename: false,
   },
   getters: {
     isLoggedIn: (state) => {
@@ -141,6 +145,7 @@ const store = createStore({
     },
     setHomeFolderID(state, payload) {
       state.homeFolderID = payload
+      localStorage.setItem("homeFolderID", payload)
     },
     setCurrentBreadcrumbs(state, payload) {
       localStorage.setItem("currentBreadcrumbs", JSON.stringify(payload))

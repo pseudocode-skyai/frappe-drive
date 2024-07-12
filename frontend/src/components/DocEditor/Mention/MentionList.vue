@@ -2,18 +2,24 @@
   <div>
     <div
       v-if="items.length"
-      class="min-w-40 rounded-lg border bg-white p-1 text-base shadow-lg"
+      class="min-w-40 rounded-lg border bg-white p-1.5 text-base shadow-lg"
     >
       <button
         v-for="(item, index) in items"
         :key="index"
         :class="[
           index === selectedIndex ? 'bg-gray-100' : 'text-gray-900',
-          'flex w-full items-center whitespace-nowrap rounded-md px-2 py-2 text-sm',
+          'flex w-full items-center whitespace-nowrap rounded p-1 text-sm',
         ]"
         @click="selectItem(index)"
         @mouseover="selectedIndex = index"
       >
+        <Avatar
+          size="sm"
+          class="mr-1"
+          :label="item.label"
+          :image="item.user_image"
+        />
         {{ item.label }}
       </button>
     </div>
@@ -21,6 +27,7 @@
 </template>
 
 <script>
+import { Avatar } from "frappe-ui"
 export default {
   props: {
     items: {
@@ -32,10 +39,18 @@ export default {
       required: true,
     },
   },
+  components: {
+    Avatar,
+  },
   data() {
     return {
       selectedIndex: 0,
     }
+  },
+  computed: {
+    currentUserName() {
+      return this.$store.state.auth.user_id
+    },
   },
   watch: {
     items() {
@@ -71,7 +86,12 @@ export default {
     selectItem(index) {
       const item = this.items[index]
       if (item) {
-        this.command({ id: item.value, label: item.label })
+        this.command({
+          id: item.value,
+          label: item.label,
+          author: this.currentUserName,
+          type: item.type,
+        })
       }
     },
   },

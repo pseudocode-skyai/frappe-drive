@@ -22,7 +22,6 @@
           <span
             class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
           >
-            <FeatherIcon class="h-4 w-4" name="info" />
             Information
           </span>
           <div class="space-y-6.5 h-full flex-auto flex flex-col z-0">
@@ -160,9 +159,8 @@
         <!-- Comments -->
         <div v-if="tab === 5" class="px-5 py-4 border-b">
           <span
-            class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
+            class="inline-flex items-center gap-2.5 text-gray-800 font-medium text-lg w-full"
           >
-            <FeatherIcon class="h-4 w-4 stroke-[1.5]" name="message-circle" />
             Comments
           </span>
           <OuterCommentVue
@@ -173,7 +171,7 @@
             :is-comment-mode-on="showComments"
             @set-comment="setComment"
           />
-          <div v-else class="text-gray-600 text-sm mt-2">
+          <div v-else class="text-gray-600 text-sm my-5">
             There are no comments for the current document
           </div>
         </div>
@@ -183,11 +181,10 @@
           <span
             class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
           >
-            <Type class="h-4 w-4 stroke-[1.5]" />
             Style
           </span>
-          <span class="font-medium text-gray-600 text-xs my-2">TITLES</span>
-          <div class="w-full flex justify-between gap-1 mb-2.5">
+          <span class="font-medium text-gray-600 text-xs my-2">TITLE</span>
+          <div class="w-full flex justify-between gap-x-1.5 mb-6">
             <Button
               class="w-1/3 font-semibold"
               @click="
@@ -233,7 +230,7 @@
           </div>
 
           <span class="font-semibold text-gray-600 text-xs my-2">CONTENT</span>
-          <div class="w-full flex justify-between gap-1 mb-2.5">
+          <div class="w-full flex justify-between gap-x-1.5 mb-6">
             <Button
               class="w-1/3 font-bold"
               @click="
@@ -350,11 +347,11 @@
               "
               @click="editor.chain().focus().toggleBulletList().run()"
             >
-              <template #prefix>
+              <template #icon>
                 <List class="w-4 stroke-2" />
               </template>
             </Button>
-            <Button
+            <!--             <Button
               class="w-full"
               :class="
                 editor.isActive('details')
@@ -367,10 +364,10 @@
                   : editor.chain().focus().setDetails().run()
               "
             >
-              <template #prefix>
-                <ListCollapse class="w-4" />
+              <template #icon>
+                <Details class="w-4" />
               </template>
-            </Button>
+            </Button> -->
             <Button
               class="w-full"
               :class="
@@ -380,8 +377,8 @@
               "
               @click="editor.chain().focus().toggleOrderedList().run()"
             >
-              <template #prefix>
-                <ListOrdered class="w-4" />
+              <template #icon>
+                <OrderList class="w-4" />
               </template>
             </Button>
             <Button
@@ -393,12 +390,12 @@
               "
               @click="editor.chain().focus().toggleTaskList().run()"
             >
-              <template #prefix>
-                <ListOrdered class="w-4" />
+              <template #icon>
+                <Check class="w-4" />
               </template>
             </Button>
           </div>
-          <div class="flex gap-1 mb-2">
+          <div class="flex gap-x-1.5 mb-6">
             <div
               class="flex flex-row bg-gray-100 justify-stretch items-stretch rounded p-0.5 space-x-0.5 h-8"
             >
@@ -406,13 +403,13 @@
                 :variant="'subtle'"
                 @click="editor.chain().focus().indent().run()"
               >
-                <IndentIcon class="h-4" />
+                <Indent class="h-4" />
               </Button>
               <Button
                 :variant="'subtle'"
                 @click="editor.chain().focus().outdent().run()"
               >
-                <OutdentIcon class="h-4" />
+                <Outdent class="h-4" />
               </Button>
             </div>
             <div
@@ -427,7 +424,7 @@
                 "
                 @click="editor.chain().focus().setTextAlign('left').run()"
               >
-                <FeatherIcon name="align-left" class="w-4 stroke-2" />
+                <alignLeft class="w-4" />
               </Button>
               <Button
                 class="w-full"
@@ -438,7 +435,7 @@
                 "
                 @click="editor.chain().focus().setTextAlign('center').run()"
               >
-                <FeatherIcon name="align-center" class="w-4 stroke-2" />
+                <alignCenter class="w-4" />
               </Button>
               <Button
                 class="w-full"
@@ -449,7 +446,7 @@
                 "
                 @click="editor.chain().focus().setTextAlign('right').run()"
               >
-                <FeatherIcon name="align-right" class="w-4 stroke-2" />
+                <alignRight class="w-4" />
               </Button>
               <Button
                 class="w-full"
@@ -460,7 +457,7 @@
                 "
                 @click="editor.chain().focus().setTextAlign('justify').run()"
               >
-                <FeatherIcon name="align-justify" class="w-4 stroke-2" />
+                <alignJustify class="w-4" />
               </Button>
             </div>
           </div>
@@ -468,13 +465,13 @@
           <span class="font-medium text-gray-600 text-xs my-2">
             DECORATIONS
           </span>
-          <div class="w-full flex justify-between gap-1 mb-2.5">
+          <div class="w-full flex justify-between gap-x-1.5 mb-6">
             <Button
               class="w-full"
               @click="editor.chain().focus().toggleCodeBlock().run()"
             >
               <template #prefix>
-                <Code2 name="code" class="stroke-[1.5] w-4" />
+                <Codeblock name="code" class="w-4" />
               </template>
               Block
             </Button>
@@ -483,7 +480,7 @@
               @click="editor.chain().focus().toggleBlockquote().run()"
             >
               <template #prefix>
-                <TextQuote name="quote" class="stroke-[1.5] w-4" />
+                <BlockQuote name="quote" class="w-4" />
               </template>
               Focus
             </Button>
@@ -501,14 +498,14 @@
             BACKGROUND COLOR
           </span>
           <ColorInput
-            class="mt-0.5 mb-2"
+            class="mt-0.5 mb-6"
             :value="editor.getAttributes('textStyle').backgroundColor"
             @change="
               (value) => editor.chain().focus().toggleHighlight(value).run()
             "
           />
           <span class="font-medium text-gray-600 text-xs my-2">FONT</span>
-          <div class="w-full flex justify-between gap-1">
+          <div class="w-full flex justify-between gap-x-1.5">
             <Button
               class="w-1/3"
               :class="[
@@ -562,44 +559,44 @@
           <span
             class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
           >
-            <Plus class="h-4 w-4 stroke-[1.5]" />
-            Style
+            Insert
           </span>
           <div>
-            <span class="font-medium text-gray-600 text-base">Media</span>
+            <span class="font-medium text-gray-600 text-base mb-1">Media</span>
+            <div class="w-full flex justify-between gap-x-1.5 mb-6">
+              <Button
+                class="w-full justify-start"
+                @click="addImageDialog = true"
+              >
+                <template #prefix>
+                  <Image class="text-gray-700 w-4" />
+                  Image
+                </template>
+              </Button>
 
-            <Button class="w-full justify-start" @click="addImageDialog = true">
-              <template #prefix>
-                <ImagePlus class="text-gray-700 w-4" />
-                Image
-              </template>
-            </Button>
-            <InsertImage v-model="addImageDialog" :editor="editor" />
-
-            <Button
-              class="w-full justify-start mb-2"
-              @click="addVideoDialog = true"
-            >
-              <template #prefix>
-                <FileVideo class="text-gray-700 w-4" />
-                Video
-              </template>
-            </Button>
-            <InsertVideo v-model="addVideoDialog" :editor="editor" />
+              <Button
+                class="w-full justify-start"
+                @click="addVideoDialog = true"
+              >
+                <template #prefix>
+                  <Video class="text-gray-700 w-4" />
+                  Video
+                </template>
+              </Button>
+            </div>
           </div>
-          <span class="font-medium text-gray-600 text-base">Break</span>
-          <div class="my-2">
+          <span class="font-medium text-gray-600 text-base mb-1">Break</span>
+          <div class="w-full flex justify-between gap-x-1.5 mb-6">
             <Button
               class="w-full px-2"
               @click="editor.chain().focus().setHorizontalRule().run()"
             >
               <template #prefix>
-                <Minus class="stroke-1" />
+                <Minus class="stroke-[1] text-gray-700" />
               </template>
               Rule
             </Button>
-          </div>
-          <div class="my-2">
+
             <Button
               class="px-2 w-full"
               @click="editor.chain().focus().setPageBreak().run()"
@@ -615,29 +612,29 @@
                 >
                   <path
                     d="M12 22H17.5C18.0304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V18M4 8V4C4 3.46957 4.21071 2.96086 4.58579 2.58579C4.96086 2.21071 5.46957 2 6 2H14.5L20 7.5V10.5"
-                    stroke="black"
-                    stroke-width="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
                   <path
                     d="M4 4C4 3.46957 4.21071 2.96086 4.58579 2.58579C4.96086 2.21071 5.46957 2 6 2H14.5L20 7.5M4 20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20"
-                    stroke="black"
-                    stroke-width="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
                   <path
                     d="M14 2V8H20"
-                    stroke="black"
-                    stroke-width="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
                   <path
                     d="M3 15H21"
-                    stroke="black"
-                    stroke-width="2"
+                    stroke="currentColor"
+                    stroke-width="1.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
@@ -649,12 +646,13 @@
           <span class="font-medium text-gray-600 text-base">Table</span>
           <div class="flex space-x-2 my-2">
             <Button
+              :disabled="editor.isActive('table')"
               class="w-full"
               @click="
                 editor
                   .chain()
                   .focus()
-                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                  .insertTable({ rows: 3, cols: 3, withHeaderRow: false })
                   .run()
               "
             >
@@ -665,7 +663,7 @@
                   width="24"
                   height="24"
                   viewBox="0 0 24 24"
-                  stroke-width="2"
+                  stroke-width="1.5"
                   stroke="currentColor"
                   fill="none"
                   stroke-linecap="round"
@@ -683,353 +681,22 @@
                 New Table
               </template>
             </Button>
-            <Button
-              v-if="editor.can().deleteTable()"
-              class="w-full"
-              @click="editor.chain().focus().deleteTable().run()"
-            >
-              <template #prefix>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-4"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  stroke-width="2"
-                  stroke="currentColor"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                  <path
-                    d="M12.5 21h-7.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10"
-                  ></path>
-                  <path d="M3 10h18"></path>
-                  <path d="M10 3v18"></path>
-                  <path d="M16 19h6"></path>
-                </svg>
-                Delete Table
-              </template>
-            </Button>
           </div>
-
-          <div v-if="editor.can().deleteTable()" class="space-y-2">
-            <span class="font-medium text-gray-600 text-base">Row</span>
-            <div class="flex items-stretch w-full space-x-2 justify-center">
-              <Button
-                class="px-2 w-full"
-                @click="editor.chain().focus().addRowBefore().run()"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="icon icon-tabler icon-tabler-row-insert-top"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  stroke-width="1"
-                  stroke="currentColor"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                  <path
-                    d="M4 18v-4a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z"
-                  ></path>
-                  <path d="M12 9v-4"></path>
-                  <path d="M10 7l4 0"></path>
-                </svg>
-              </Button>
-              <Button
-                class="px-2 w-full"
-                @click="editor.chain().focus().addRowAfter().run()"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="icon icon-tabler icon-tabler-row-insert-bottom"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  stroke-width="1"
-                  stroke="currentColor"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                  <path
-                    d="M20 6v4a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1z"
-                  ></path>
-                  <path d="M12 15l0 4"></path>
-                  <path d="M14 17l-4 0"></path>
-                </svg>
-              </Button>
-              <Button
-                class="px-2 w-full"
-                @click="editor.chain().focus().deleteRow().run()"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="icon icon-tabler icon-tabler-row-remove"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  stroke-width="1"
-                  stroke="currentColor"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                  <path
-                    d="M20 6v4a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1z"
-                  ></path>
-                  <path d="M10 16l4 4"></path>
-                  <path d="M10 20l4 -4"></path>
-                </svg>
-              </Button>
-            </div>
-
-            <div class="space-y-2">
-              <span class="font-medium text-gray-600 text-base my-4">
-                Column
-              </span>
-              <div class="flex items-stretch w-full space-x-2 justify-center">
-                <Button
-                  class="px-2 w-full"
-                  @click="editor.chain().focus().addColumnBefore().run()"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="icon icon-tabler icon-tabler-column-insert-left"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    stroke-width="1"
-                    stroke="currentColor"
-                    fill="none"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path
-                      d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1z"
-                    ></path>
-                    <path d="M5 12l4 0"></path>
-                    <path d="M7 10l0 4"></path>
-                  </svg>
-                </Button>
-                <Button
-                  class="w-full text-gray-600"
-                  @click="editor.chain().focus().addColumnAfter().run()"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="icon icon-tabler icon-tabler-column-insert-right"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    stroke-width="1"
-                    stroke="currentColor"
-                    fill="none"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path
-                      d="M6 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1z"
-                    ></path>
-                    <path d="M15 12l4 0"></path>
-                    <path d="M17 10l0 4"></path>
-                  </svg>
-                </Button>
-                <Button
-                  class="px-2 w-full"
-                  @click="editor.chain().focus().deleteColumn().run()"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="icon icon-tabler icon-tabler-column-remove"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    stroke-width="1"
-                    stroke="currentColor"
-                    fill="none"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path
-                      d="M6 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1z"
-                    ></path>
-                    <path d="M16 10l4 4"></path>
-                    <path d="M16 14l4 -4"></path>
-                  </svg>
-                </Button>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <span class="font-medium text-gray-600 text-base">Cells</span>
-              <div class="flex items-stretch w-full space-x-2 justify-center">
-                <Button
-                  class="px-2 w-full"
-                  @click="editor.chain().focus().mergeCells().run()"
-                >
-                  <template #prefix>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="w-4"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      stroke-width="0"
-                      viewBox="0 0 24 24"
-                      width="24"
-                      height="24"
-                    >
-                      <path
-                        d="M21 20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20C20.5523 3 21 3.44772 21 4V20ZM19 11V5H13.001V7H15L12 10L9 7H11V5H5V11H7V13H5V19H11V17H9L12 14L15 17H13.001V19H19V13H17V11H19ZM11 13H9V11H11V13ZM15 13H13V11H15V13Z"
-                      ></path>
-                    </svg>
-                  </template>
-                  Merge
-                </Button>
-                <Button
-                  class="px-2 w-full"
-                  @click="editor.chain().focus().splitCell().run()"
-                >
-                  <template #prefix>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="w-4"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      stroke-width="0"
-                      viewBox="0 0 24 24"
-                      width="24"
-                      height="24"
-                    >
-                      <path
-                        d="M21 20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20C20.5523 3 21 3.44772 21 4V20ZM19 11V5H13.001V7H15L12 10L9 7H11V5H5V11H7V13H5V19H11V17H9L12 14L15 17H13.001V19H19V13H17V11H19ZM11 13H9V11H11V13ZM15 13H13V11H15V13Z"
-                      ></path>
-                    </svg>
-                  </template>
-                  Split
-                </Button>
-                <Button
-                  class="px-2 w-full"
-                  @click="editor.chain().focus().toggleHeaderCell().run()"
-                >
-                  <template #prefix>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="w-4"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      stroke-width="0"
-                      viewBox="0 0 24 24"
-                      width="24"
-                      height="24"
-                    >
-                      <path
-                        d="M15 21H9V10H15V21ZM17 21V10H22V20C22 20.5523 21.5523 21 21 21H17ZM7 21H3C2.44772 21 2 20.5523 2 20V10H7V21ZM22 8H2V4C2 3.44772 2.44772 3 3 3H21C21.5523 3 22 3.44772 22 4V8Z"
-                        fill="currentColor"
-                      ></path>
-                    </svg>
-                  </template>
-                  Header
-                </Button>
-              </div>
-            </div>
-          </div>
-          <!--         <div class="flex-col items-start w-full space-x-2 justify-start">
-            <span class="font-medium text-gray-600 text-base">Header</span>
-            <div class="flex items-stretch w-full space-x-2 justify-center">   
-            </div>
-            <div class="flex items-stretch w-full space-x-2 justify-center">
-              <Button
-                class="px-2"
-                @click="editor.chain().focus().toggleHeaderColumn().run()">
-                <template #prefix>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-table-column" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z"></path>
-                    <path d="M10 10h11"></path>
-                    <path d="M10 3v18"></path>
-                    <path d="M9 3l-6 6"></path>
-                    <path d="M10 7l-7 7"></path>
-                    <path d="M10 12l-7 7"></path>
-                    <path d="M10 17l-4 4"></path>
-                  </svg>
-              </template>
-                Header Col
-              </Button>
-              <Button
-                class="px-2"
-                @click="editor.chain().focus().toggleHeaderRow().run()">
-                <template #prefix>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-table-row" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z"></path>
-                    <path d="M9 3l-6 6"></path>
-                    <path d="M14 3l-7 7"></path>
-                    <path d="M19 3l-7 7"></path>
-                    <path d="M21 6l-4 4"></path>
-                    <path d="M3 10h18"></path>
-                    <path d="M10 10v11"></path>
-                  </svg>
-              </template>
-                Header Row
-              </Button>
-            </div>
-          </div> -->
         </div>
 
         <!-- Document Settings -->
-        <div v-if="tab === 2" class="flex flex-col px-5 py-4 border-b">
+        <div v-if="tab === 2" class="flex flex-col px-3 py-4 border-b">
           <span
-            class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
+            class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full px-2"
           >
-            <FileText class="h-4 w-4 stroke-[1.5]" />
             Settings
           </span>
-          <div class="flex items-center">
-            <span class="font-medium text-gray-700 text-base my-2">
-              Small Text
-            </span>
-            <Switch
-              v-model="settings.docSize"
-              :class="settings.docSize ? 'bg-black' : 'bg-gray-200'"
-              class="ml-auto auto inline-flex h-4 w-[26px] items-center rounded-full cursor-pointer"
-              @click="settings.docSize = !settings.docSize"
-            >
-              <span
-                :class="settings.docSize ? 'translate-x-3.5' : 'translate-x-1'"
-                class="inline-block h-2 w-2 transform rounded-full bg-white transition"
-              />
-            </Switch>
-          </div>
-          <div class="flex items-center">
-            <span class="font-medium text-gray-700 text-base my-2">
-              Full Width
-            </span>
-            <Switch
-              v-model="settings.docWidth"
-              :class="settings.docWidth ? 'bg-black' : 'bg-gray-200'"
-              class="ml-auto auto inline-flex h-4 w-[26px] items-center rounded-full cursor-pointer"
-              @click="settings.docWidth = !settings.docWidth"
-            >
-              <span
-                :class="settings.docWidth ? 'translate-x-3.5' : 'translate-x-1'"
-                class="inline-block h-2 w-2 transform rounded-full bg-white transition"
-              />
-            </Switch>
-          </div>
-          <span class="font-medium text-gray-700 text-base my-2">
+          <Switch v-model="settings.docSize" label="Small Text" />
+          <Switch v-model="settings.docWidth" label="Full Width" />
+          <span class="font-medium text-gray-700 text-base my-2.5 px-2.5">
             Default Font
           </span>
-          <div class="w-full flex justify-between gap-1">
+          <div class="w-full flex justify-between gap-1 px-3">
             <Button
               class="w-1/3"
               :class="[
@@ -1083,13 +750,12 @@
           <span
             class="inline-flex items-center gap-2.5 mb-5 text-gray-800 font-medium text-lg w-full"
           >
-            <ArrowDownUp class="h-4 w-4 stroke-[1.5]" />
             Transform
           </span>
           <div>
             <span
               v-if="$route.meta.documentPage && $store.state.hasWriteAccess"
-              class="font-medium text-gray-600 text-base"
+              class="font-medium text-gray-700 text-base"
             >
               Import
             </span>
@@ -1099,18 +765,18 @@
               @click="() => emitter.emit('importDocFromWord')"
             >
               <template #prefix>
-                <FileUp class="text-gray-700 w-4" />
-                Import from DOCX
+                <FileUp class="text-gray-700 w-4 stroke-[1.5]" />
+                Import DOCX
               </template>
             </Button>
-            <span class="font-medium text-gray-600 text-base">Export</span>
+            <span class="font-medium text-gray-700 text-base">Export</span>
             <Button
               class="w-full justify-start"
               @click="() => emitter.emit('exportDocToPDF')"
             >
               <template #prefix>
-                <FileDown class="text-gray-700 w-4" />
-                Export to PDF
+                <FileDown class="text-gray-700 w-4 stroke-[1.5]" />
+                Export PDF
               </template>
             </Button>
             <!-- <Button class="w-full justify-start">
@@ -1148,27 +814,36 @@
         />
       </button>
     </template>
+    <!-- 
+      Might spawn from emits 
+      so they fall outside of tabs scope
+    -->
+    <InsertImage v-model="addImageDialog" :editor="editor" />
+    <InsertVideo v-model="addVideoDialog" :editor="editor" />
   </div>
 </template>
 
 <script>
-import { FeatherIcon, Avatar, Input, Popover, Badge, Dropdown } from "frappe-ui"
+import {
+  FeatherIcon,
+  Avatar,
+  Input,
+  Popover,
+  Badge,
+  Dropdown,
+  Switch,
+} from "frappe-ui"
 import TagInput from "@/components/TagInput.vue"
 import Tag from "@/components/Tag.vue"
 import { formatMimeType } from "@/utils/format"
 import { getIconUrl } from "@/utils/getIconUrl"
 import { v4 as uuidv4 } from "uuid"
-import { defineAsyncComponent } from "vue"
+import { defineAsyncComponent, markRaw } from "vue"
 import OuterCommentVue from "@/components/DocEditor/OuterComment.vue"
 import LineHeight from "./icons/line-height.vue"
 import {
   Plus,
   Minus,
-  ListOrdered,
-  ListChecks,
-  List,
-  IndentIcon,
-  OutdentIcon,
   Heading1,
   Heading2,
   Heading3,
@@ -1176,16 +851,12 @@ import {
   FileDown,
   ArrowDownUp,
   TextQuote,
-  Type,
   Info,
   MessageCircle,
   FileText,
-  ListCollapse,
 } from "lucide-vue-next"
 import { Code } from "lucide-vue-next"
 import { Code2 } from "lucide-vue-next"
-import { ImagePlus } from "lucide-vue-next"
-import { FileVideo } from "lucide-vue-next"
 import { Table2Icon } from "lucide-vue-next"
 import "@fontsource/lora"
 import "@fontsource/geist-mono"
@@ -1195,14 +866,29 @@ import Bold from "./icons/Bold.vue"
 import Strikethrough from "./icons/StrikeThrough.vue"
 import Underline from "./icons/Underline.vue"
 import GeneralAccess from "@/components/GeneralAccess.vue"
+import Indent from "./icons/Indent.vue"
+import Outdent from "./icons/Outdent.vue"
+import Codeblock from "./icons/Codeblock.vue"
+import List from "./icons/List.vue"
+import OrderList from "./icons/OrderList.vue"
+import Check from "./icons/Check.vue"
+import Details from "./icons/Details.vue"
+import alignRight from "./icons/AlignRight.vue"
+import alignLeft from "./icons/AlignLeft.vue"
+import alignCenter from "./icons/AlignCenter.vue"
+import alignJustify from "./icons/AlignJustify.vue"
+import BlockQuote from "./icons/BlockQuote.vue"
+import Style from "./icons/Style.vue"
+import Image from "./icons/Image.vue"
+import Video from "./icons/Video.vue"
 
 export default {
   name: "DocMenuAndInfoBar",
   components: {
+    Switch,
     Input,
     FeatherIcon,
     Avatar,
-
     TagInput,
     Tag,
     OuterCommentVue,
@@ -1215,15 +901,22 @@ export default {
     Bold,
     Strikethrough,
     Underline,
-    ListOrdered,
-    ListChecks,
     List,
-    IndentIcon,
-    OutdentIcon,
+    Indent,
+    Outdent,
     Code,
     Code2,
-    ImagePlus,
-    FileVideo,
+    Codeblock,
+    Check,
+    OrderList,
+    alignLeft,
+    alignRight,
+    alignCenter,
+    alignJustify,
+    BlockQuote,
+    Style,
+    Image,
+    Video,
     Table2Icon,
     Badge,
     Dropdown,
@@ -1234,12 +927,11 @@ export default {
     FileUp,
     FileDown,
     ArrowDownUp,
-    Type,
     Info,
     TextQuote,
     MessageCircle,
     FileText,
-    ListCollapse,
+    Details,
     GeneralAccess,
   },
   inject: ["editor"],
@@ -1256,35 +948,36 @@ export default {
   data() {
     return {
       tab: this.entity?.write ? 0 : 4,
+      docFont: this.settings.docFont,
       tabs: [
         {
           name: "Typography",
-          icon: Type,
+          icon: markRaw(Style),
           write: true,
         },
         {
           name: "Insert",
-          icon: Plus,
+          icon: markRaw(Plus),
           write: true,
         },
         {
           name: "Document Settings",
-          icon: FileText,
+          icon: markRaw(FileText),
           write: true,
         },
         {
           name: "Transforms",
-          icon: ArrowDownUp,
+          icon: markRaw(ArrowDownUp),
           write: false,
         },
         {
           name: "Information",
-          icon: Info,
+          icon: markRaw(Info),
           write: false,
         },
         {
           name: "Comments",
-          icon: MessageCircle,
+          icon: markRaw(MessageCircle),
           write: false,
         },
       ],
@@ -1368,6 +1061,19 @@ export default {
         this.$resources.groupList.data
       )
     },
+    formattedMimeType() {
+      if (this.entity.is_group) return "Folder"
+      const file = this.entity.file_kind
+      return file?.charAt(0).toUpperCase() + file?.slice(1)
+    },
+  },
+  mounted() {
+    this.emitter.on("addImage", () => {
+      this.addImageDialog = true
+    })
+    this.emitter.on("addVideo", () => {
+      this.addVideoDialog = true
+    })
   },
   methods: {
     switchTab(val) {
@@ -1454,21 +1160,21 @@ export default {
       return {
         url: "drive.api.permissions.get_shared_with_list",
         params: { entity_name: this.entity.name },
-        auto: true,
+        auto: this.entity.owner === "You",
       }
     },
     groupList() {
       return {
         url: "drive.api.permissions.get_shared_user_group_list",
         params: { entity_name: this.entity.name },
-        auto: true,
+        auto: this.entity.owner === "You",
       }
     },
     generalAccess() {
       return {
         url: "drive.api.permissions.get_general_access",
         params: { entity_name: this.entity.name },
-        auto: true,
+        auto: this.entity.owner === "You",
       }
     },
     userTags() {
@@ -1479,7 +1185,7 @@ export default {
             console.log(error.messages)
           }
         },
-        auto: true,
+        auto: false,
       }
     },
     entityTags() {
@@ -1491,7 +1197,7 @@ export default {
             console.log(error.messages)
           }
         },
-        auto: true,
+        auto: false,
       }
     },
   },

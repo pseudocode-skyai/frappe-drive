@@ -1,6 +1,6 @@
 import tippy from "tippy.js"
 import { VueRenderer } from "@tiptap/vue-3"
-import Mention from "@tiptap/extension-mention"
+import { Mention } from "./MentionExtension"
 import MentionList from "./MentionList.vue"
 
 export default function configureMention(options) {
@@ -19,7 +19,7 @@ function getSuggestionOptions(options) {
         .filter((item) =>
           item.label.toLowerCase().startsWith(query.toLowerCase())
         )
-        .slice(0, 5)
+        .slice(0, 10)
     },
 
     render: () => {

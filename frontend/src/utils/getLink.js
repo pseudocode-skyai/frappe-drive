@@ -6,8 +6,16 @@ export async function getLink(entity) {
     : entity.document
     ? `${window.location.origin}/drive/document/${entity.name}`
     : `${window.location.origin}/drive/file/${entity.name}`
-  navigator.permissions.query({ name: "clipboard-write" }).then((result) => {
-    if (result.state == "denied") {
+
+  try {
+    await copyToClipboard(link)
+    toast({
+      title: "Copied link",
+      position: "bottom-right",
+      timeout: 2,
+    })
+  } catch (err) {
+    if (err.name === "NotAllowedError") {
       toast({
         icon: "alert-triangle",
         iconClasses: "text-red-700",
@@ -15,18 +23,22 @@ export async function getLink(entity) {
         position: "bottom-right",
       })
     } else {
-      copyToClipboard(link)
-      toast({
-        title: "Copied link",
-        position: "bottom-right",
-        timeout: 2,
-      })
+      console.error("Failed to copy link:", err)
     }
-  })
+  }
 }
 
 const copyToClipboard = (str) => {
-  if (navigator && navigator.clipboard && navigator.clipboard.writeText)
+  if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
     return navigator.clipboard.writeText(str)
-  return Promise.reject("The Clipboard API is not available.")
+  } else {
+    // Fallback to the legacy clipboard API
+    const textArea = document.createElement("textarea")
+    textArea.value = str
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand("copy")
+    document.body.removeChild(textArea)
+    return Promise.resolve()
+  }
 }

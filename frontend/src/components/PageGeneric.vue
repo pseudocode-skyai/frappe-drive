@@ -26,6 +26,7 @@
       </template>
       <template #placeholder>
         <NoFilesSection
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           :icon="icon"
           :primary-message="primaryMessage"
           :secondary-message="secondaryMessage"
@@ -53,6 +54,7 @@
       </template>
       <template #placeholder>
         <NoFilesSection
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           :icon="icon"
           :primary-message="primaryMessage"
           :secondary-message="secondaryMessage"
@@ -209,7 +211,7 @@ import {
   folderDownload,
   selectedEntitiesDownload,
 } from "@/utils/folderDownload"
-import { RotateCcw } from "lucide-vue-next"
+import { RotateCcw, X } from "lucide-vue-next"
 import NewFolder from "./EspressoIcons/NewFolder.vue"
 import FileUpload from "./EspressoIcons/File-upload.vue"
 import FolderUpload from "./EspressoIcons/Folder-upload.vue"
@@ -223,6 +225,7 @@ import Star from "./EspressoIcons/Star.vue"
 import Preview from "./EspressoIcons/Preview.vue"
 import Trash from "./EspressoIcons/Trash.vue"
 import NewFile from "./EspressoIcons/NewFile.vue"
+import { toast } from "../utils/toasts.js"
 
 export default {
   name: "PageGeneric",
@@ -323,10 +326,17 @@ export default {
     overrideCanLoadMore: false,
     clearAll: false,
     showCTADelete: false,
-    selectedEntities: [],
   }),
 
   computed: {
+    selectedEntities: {
+      get() {
+        return this.$store.state.entityInfo
+      },
+      set(val) {
+        this.$store.commit("setEntityInfo", val)
+      },
+    },
     filters() {
       return this.$store.state.activeFilters
     },
@@ -659,12 +669,16 @@ export default {
               this.showUnshareDialog = true
             },
             isEnabled: () => {
-              return (
-                this.selectedEntities.length > 0 &&
-                this.selectedEntities.every((x) => x.owner != "You") &&
-                (this.selectedEntities.every((x) => x.write) ||
-                  !this.isSharedFolder)
-              )
+              if (this.selectedEntities.length) {
+                return (
+                  this.selectedEntities.every(
+                    (x) =>
+                      x.owner != "You" &&
+                      x.user_doctype === "User" &&
+                      x.everyone !== 1
+                  ) && !this.isSharedFolder
+                )
+              }
             },
           },
           {
@@ -979,6 +993,24 @@ export default {
           ),
         },
         onSuccess() {
+          // Toggled OFF
+          if (this.selectedEntities[0].is_favourite) {
+            toast({
+              title: `${this.selectedEntities.length} ${
+                this.selectedEntities.length > 1 ? " items" : " item"
+              } removed from Favourites`,
+              position: "bottom-right",
+              timeout: 2,
+            })
+          } else {
+            toast({
+              title: `${this.selectedEntities.length} ${
+                this.selectedEntities.length > 1 ? " items" : " item"
+              } added to Favourites`,
+              position: "bottom-right",
+              timeout: 2,
+            })
+          }
           this.handleListMutation(this.selectedEntities[0].name)
           this.selectedEntities = []
         },
@@ -995,6 +1027,13 @@ export default {
           ),
         },
         onSuccess() {
+          toast({
+            title: `Cleared  ${this.selectedEntities.length} ${
+              this.selectedEntities.length > 1 ? " items" : " item"
+            } from Recents`,
+            position: "bottom-right",
+            timeout: 2,
+          })
           this.handleListMutation(this.selectedEntities[0].name)
           this.selectedEntities = []
         },
